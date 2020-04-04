@@ -15,6 +15,8 @@
  */
 package com.example.android.miwok;
 
+import android.content.Context;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -25,12 +27,33 @@ import android.widget.ListView;
 import java.util.ArrayList;
 
 public class ColorsActivity extends AppCompatActivity {
-MediaPlayer mdp;
+    private MediaPlayer mdp;
+   private  AudioManager adm;
+    private AudioManager.OnAudioFocusChangeListener focuslist= new AudioManager.OnAudioFocusChangeListener() {
+        @Override
+        public void onAudioFocusChange(int focusChange) {
+            if(focusChange==AudioManager.AUDIOFOCUS_LOSS_TRANSIENT || focusChange==AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK){
+                mdp.pause();
+                mdp.seekTo(0);
+            }
+            else if(focusChange==AudioManager.AUDIOFOCUS_GAIN){
+                mdp.start();
+            }
+            else if(focusChange==AudioManager.AUDIOFOCUS_LOSS){
+                release_media();
+            }
+        }
+    };
+    @Override
+    protected void onStop() {
+        super.onStop();
+        release_media();
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_numbers);
-
+        adm =(AudioManager) getSystemService(Context.AUDIO_SERVICE);
        final ArrayList<Words> words = new ArrayList<>();
         ListView lst=(ListView)findViewById(R.id.list) ;
     words.add(new Words("red", "weṭeṭṭi", R.drawable.color_red,R.raw.color_red));
@@ -55,11 +78,31 @@ MediaPlayer mdp;
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Words word=words.get(position);
-                mdp= MediaPlayer.create(ColorsActivity.this,word.getSoundid());
-                mdp.start();
+                release_media();
+                int res=adm.requestAudioFocus(focuslist,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+
+                if(res==AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+
+
+                    mdp = MediaPlayer.create(ColorsActivity.this, word.getSoundid());
+                    mdp.start();
+                    mdp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                        @Override
+                        public void onCompletion(MediaPlayer mp) {
+                            release_media();
+                        }
+                    });
+                }
             }
         });
 
+    }
+    public void  release_media(){
+        if(mdp!=null){
+            mdp.release();;
+            mdp=null;
+            adm.abandonAudioFocus(focuslist);
+        }
     }
 
 }
